@@ -1,137 +1,174 @@
-# Ollama Cheatsheet
+# Ollama Cheat Sheet
 
-## Basic Commands
+## Installation
 
-### Installation
 ```bash
-# macOS / Linux
+# MacOS & Linux
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Windows
 # Download from https://ollama.com/download/windows
 ```
 
-### Managing Models
+## Basic Commands
+
 ```bash
-# List available models
+# Run a model (downloads it if not available)
+ollama run llama2
+
+# List all available models
 ollama list
 
-# Pull a model
-ollama pull [model]
-# Examples:
+# Pull a specific model
 ollama pull llama2
-ollama pull mistral
-ollama pull llama2:13b
 
 # Remove a model
-ollama rm [model]
+ollama rm llama2
 
-# Get model info
-ollama show [model]
+# Get information about a model
+ollama show llama2
 ```
 
-### Running Models
+## Running Models
+
 ```bash
-# Run model in interactive mode
-ollama run [model]
+# Basic conversation
+ollama run llama2
 
-# One-shot prompt
-echo "Your prompt here" | ollama run [model]
+# Run with specific parameters
+ollama run llama2 --temperature 0.7 --top_p 0.9
 
-# Generate with specific parameters
-ollama run [model] --temperature 0.7 --top_p 0.9
+# One-shot query (non-interactive)
+ollama run llama2 "Write a short poem about coding"
+
+# Stream response to file
+ollama run llama2 "Explain quantum computing" > response.txt
 ```
 
-## Creating Custom Models
+## Model Management
 
-### Custom Model with Modelfile
 ```bash
-# Create a Modelfile
-cat > Modelfile << EOF
-FROM llama2
-SYSTEM "You are a helpful assistant that specializes in Python programming."
-PARAMETER temperature 0.7
-EOF
+# Create a model tag from a Modelfile
+ollama create mymodel -f Modelfile
 
-# Create model from Modelfile
-ollama create python-assistant -f Modelfile
+# Push model to Ollama registry
+ollama push username/mymodel:latest
 
-# Run the custom model
-ollama run python-assistant
-```
+# Pull model from Ollama registry
+ollama pull username/mymodel:latest
 
-### Modelfile Parameters
-
-```
-FROM [model]          # Base model
-SYSTEM "..."          # System prompt
-TEMPLATE "..."        # Custom prompt template
-PARAMETER temp [0-1]  # Set default temperature
-PARAMETER top_p [0-1] # Set default top_p
-ADAPTER [path]        # Path to LoRA adapter
+# Copy a model
+ollama cp mistral myownmistral
 ```
 
 ## API Usage
 
-### Server Management
+```bash
+# Basic API request
+curl -X POST http://localhost:11434/api/generate -d '{
+  "model": "llama2",
+  "prompt": "Why is the sky blue?"
+}'
+
+# Chat completion API
+curl -X POST http://localhost:11434/api/chat -d '{
+  "model": "llama2",
+  "messages": [
+    { "role": "user", "content": "Hello, who are you?" }
+  ]
+}'
+```
+
+## Server Management
+
 ```bash
 # Start Ollama server
 ollama serve
 
-# Check server status
-curl http://localhost:11434/api/version
-```
+# Specify server address
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
 
-### API Examples
-```bash
-# Generate completion
-curl -X POST http://localhost:11434/api/generate -d '{
-  "model": "llama2",
-  "prompt": "Write a Python function to calculate Fibonacci numbers",
-  "stream": false
-}'
-
-# List models
-curl http://localhost:11434/api/tags
-
-# Create embedding
-curl -X POST http://localhost:11434/api/embeddings -d '{
-  "model": "llama2",
-  "prompt": "The text to embed"
-}'
+# Use custom model library path
+OLLAMA_MODELS=/path/to/models ollama serve
 ```
 
 ## Advanced Usage
 
-### Fine-tuning
 ```bash
-# Basic fine-tuning (requires a Modelfile with training data)
-cat > Modelfile << EOF
+# Create a custom model with a Modelfile
+cat << EOF > Modelfile
 FROM llama2
-ADAPTER ./path/to/adapter
+SYSTEM "You are a helpful assistant specialized in Python programming."
+PARAMETER temperature 0.7
 EOF
+ollama create pyassistant -f Modelfile
 
-ollama create my-tuned-model -f Modelfile
+# Embeddings API
+curl -X POST http://localhost:11434/api/embeddings -d '{
+  "model": "llama2",
+  "prompt": "The quick brown fox jumps over the lazy dog"
+}'
 ```
 
-### Multi-Modal Models
+## Popular Models
+
+- `llama2`, `llama2:13b`, `llama2:70b` - Meta's LLaMA 2 models
+- `mistral`, `mistral:instruct` - Mistral AI models
+- `codellama` - Specialized for code generation
+- `gemma`, `gemma:7b`, `gemma:2b` - Google's lightweight models
+- `phi` - Microsoft's small but capable models
+
+## Python Integration
+
+```python
+# Install the official client
+pip install ollama
+
+# Basic usage
+import ollama
+
+# Generate text
+response = ollama.generate(
+    model='llama2',
+    prompt='Explain asyncio in Python'
+)
+print(response['response'])
+
+# Chat completion
+response = ollama.chat(
+    model='llama2',
+    messages=[
+        {'role': 'user', 'content': 'What are Python decorators?'}
+    ]
+)
+print(response['message']['content'])
+
+# Embeddings
+embeddings = ollama.embeddings(
+    model='llama2',
+    prompt='Python is a programming language'
+)
+```
+
+## Environment Variables
+
 ```bash
-# Run models that support image input
-ollama run llava
+# Server address
+OLLAMA_HOST=127.0.0.1:11434
 
-# Pass image to model
-ollama run llava -m "What's in this image?" < image.jpg
+# Model library location
+OLLAMA_MODELS=/path/to/models
+
+# GPU device selection
+CUDA_VISIBLE_DEVICES=0
+
+# VRAM usage control
+OLLAMA_GPU_LAYERS=35
 ```
 
-### Quantization Levels
-```bash
-# Pull different quantization levels
-ollama pull llama2:7b-q4_0  # More compressed, faster, less accurate
-ollama pull llama2:7b-q8_0  # Less compressed, slower, more accurate
-```
+## Troubleshooting
 
-### Context Window Management
-```bash
-# Set specific context window size
-ollama run llama2 --num_ctx 8192
-```
+- **Model download issues**: Check network connection and disk space
+- **Out of memory errors**: Use a smaller model or adjust `OLLAMA_GPU_LAYERS`
+- **Server not responding**: Verify Ollama is running with `ps aux | grep ollama`
+- **Slow responses**: Consider using quantized models (e.g., `:q4_k_m`)
